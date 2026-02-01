@@ -21,13 +21,14 @@ volatile uint32_t systick_cnt = 0;
 
 // every 1ms
 void UserSysTickHandler(void) {
-  static uint32_t c;  
-  
+  static uint32_t c = 0;
+
   systick_cnt++;
 
-  c++;
   // every 10ms
-  if ((c % 10) == 0) {
+  // Optimized: Replace modulo with simple counter to avoid expensive division in 1ms interrupt
+  if (++c >= 10) {
+    c = 0;
     motor_slow_loop(&MSPublic);
   }
 }
@@ -303,10 +304,10 @@ int main(void) {
     MSPublic.brake_active = M365State.brake_active;
 
 		//slow loop process, every 20ms
-    static uint32_t systick_cnt_old = 0;
-		if ((systick_cnt_old != systick_cnt) && // only at a change
-        (systick_cnt % 20) == 0) { // every 20ms
-      systick_cnt_old = systick_cnt;
+    // Optimized: Use time-delta check instead of modulo to save CPU cycles and handle overflow correctly
+    static uint32_t last_20ms_tick = 0;
+		if ((systick_cnt - last_20ms_tick) >= 20) {
+      last_20ms_tick = systick_cnt;
 
       // process buttons
 		  checkButton(&M365State);
