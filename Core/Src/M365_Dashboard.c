@@ -21,7 +21,6 @@ extern UART_HandleTypeDef huart3;
 static uint8_t ui8_rx_buffer[132];
 static uint8_t ui8_dashboardmessage[132];
 static uint8_t enc[128];
-static char buffer[64];
 static uint8_t	ui8_tx_buffer[96];// = {0x55, 0xAA, 0x08, 0x21, 0x64, 0x00, 0x01, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t ui8_oldpointerposition=64;
 static uint8_t ui8_recentpointerposition=0;
@@ -448,10 +447,6 @@ void process_DashboardMessage(M365State_t* p_M365State, uint8_t *message, uint8_
 				memcpy(target,source+6,packetsize);
 				decr_and_flash(enc,flashstartaddress,ui16_update_size,packetsize);
 				flashstartaddress+=packetsize;
-
-		  		sprintf_(buffer, "%d, %d, %d\r\n", flashstartaddress,packetsize, olddataposition);
-		  		HAL_UART_Transmit_DMA(&huart3, (uint8_t *)&buffer, strlen(buffer));
-
 			}
 			olddataposition=message[5];
 
@@ -488,6 +483,7 @@ void process_DashboardMessage(M365State_t* p_M365State, uint8_t *message, uint8_
 }
 
 void addCRC(uint8_t * message, uint8_t size){
+    if (size > 95) return;
     unsigned long cksm = 0;
     for(int i = 2; i < size - 2; i++) cksm += message[i];
     cksm ^= 0xFFFF;
@@ -497,6 +493,7 @@ void addCRC(uint8_t * message, uint8_t size){
 }
 
 int16_t checkCRC(uint8_t * message, uint8_t size){
+    if (size < 4 || size > 132) return -1;
     unsigned long cksm = 0;
     for(int i = 2; i < size - 2; i++) cksm += message[i];
     cksm ^= 0xFFFF;
