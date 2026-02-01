@@ -16,7 +16,8 @@
 #include "stm32f1xx_hal_flash.h"
 enum { STATE_LOST, STATE_START_DETECTED, STATE_LENGTH_DETECTED };
 
-UART_HandleTypeDef huart3;
+// Fix: Use extern to avoid multiple definition error with main.c
+extern UART_HandleTypeDef huart3;
 static uint8_t ui8_rx_buffer[132];
 static uint8_t ui8_dashboardmessage[132];
 static uint8_t enc[128];
@@ -164,8 +165,10 @@ void search_DashboardMessage(M365State_t* p_M365State, UART_HandleTypeDef huart1
 
 			switch (ui8_state) {
 			case STATE_LOST: { //if no message start is detected yet, search for start pattern 0x55 0xAA
-				if(ui8_rx_buffer[ui8_oldpointerposition]==0xAA&&ui8_rx_buffer[ui8_oldpointerposition-1]==0x55){
-					ui8_messagestartpos=ui8_oldpointerposition-1;
+				// Safety fix: Correctly handle buffer wrap-around for start pattern detection
+				uint8_t prev_pos = (ui8_oldpointerposition == 0) ? (sizeof(ui8_rx_buffer) - 1) : (ui8_oldpointerposition - 1);
+				if(ui8_rx_buffer[ui8_oldpointerposition]==0xAA && ui8_rx_buffer[prev_pos]==0x55){
+					ui8_messagestartpos = prev_pos;
 					if(ui8_messagestartpos<sizeof(ui8_rx_buffer)-24){
 					ui8_state=STATE_START_DETECTED;
 					}
@@ -196,7 +199,8 @@ void search_DashboardMessage(M365State_t* p_M365State, UART_HandleTypeDef huart1
 				break;
 			} //end switch
 
-			ui8_oldpointerposition=(ui8_oldpointerposition+1)% sizeof(ui8_rx_buffer);
+			// Optimized: Replace modulo with conditional check to avoid division in high-frequency UART processing loop
+			if (++ui8_oldpointerposition >= sizeof(ui8_rx_buffer)) ui8_oldpointerposition = 0;
 		}// end of while
 		ui32_timeoutcounter++;
 }
